@@ -2,6 +2,8 @@ use actix_web::web::Bytes;
 use actix_web::{post, HttpResponse};
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
+use std::str::FromStr;
+use cargo_manifest::{Manifest, MaybeInherited};
 use toml::{Table, Value};
 
 #[derive(Clone, Debug, PartialEq)]
@@ -21,6 +23,11 @@ struct Order {
 #[post("/5/manifest")]
 async fn manifest(bytes: Bytes) -> HttpResponse {
     if let Ok(data) = String::from_utf8(bytes.to_vec()) {
+
+        if let Some(error) = validate_manifest(&data) {
+            return HttpResponse::BadRequest().body(error);
+        }
+
         return if let Ok(orders) = parse_data(&data) {
             if orders.is_empty() {
                 return HttpResponse::NoContent().finish();
@@ -52,6 +59,27 @@ macro_rules! err {
     ($text:expr) => {
         PackageParsingError(String::from($text))
     };
+}
+
+fn validate_manifest(data: &str) -> Option<String> {
+    let mut error: Option<String> = None;
+    if let Ok(parsed_manifest) = Manifest::from_str(data) {
+        let keywords: Vec<String> = parsed_manifest.package
+            .and_then(|p| p.keywords)
+            .and_then(
+                |kw| match kw {
+                    MaybeInherited::Inherited { workspace: _ } => None,
+                    MaybeInherited::Local(keywords) => Some(keywords)
+                }
+            ).unwrap_or(vec![]);
+        let needle = String::from("Christmas 2024");
+        if !keywords.contains(&needle) {
+            error.replace(String::from("Magic keyword not provided"));
+        }
+    } else {
+        error.replace(String::from("Invalid manifest"));
+    }
+    error
 }
 
 fn parse_data(data: &str) -> Result<Vec<Order>, PackageParsingError> {
