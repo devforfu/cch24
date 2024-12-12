@@ -1,6 +1,6 @@
-use std::fmt::{Debug, Display, Formatter};
-use actix_web::{get, web, HttpRequest};
+use actix_web::{get, web};
 use serde::Deserialize;
+use std::fmt::{Debug, Display, Formatter};
 
 #[derive(Deserialize)]
 struct Dest {
